@@ -1,0 +1,5 @@
+venv/
+**pycache**/
+*.py[cod]
+.env
+training.1600000.processed.noemoticon.csv
