@@ -42,6 +42,7 @@ def clean_tweet(tweet):
     tweet = re.sub(r"\s+", " ", tweet).strip()
     tweet = re.sub(r"#", "", tweet)
     tweet = re.sub(r"[^\w\s]", "", tweet)
+    tweet = re.sub(r"(.)\1{2,}", r"\1\1", tweet)
     return tweet
 
 df["cleaned_tweet"] = df["tweet"].apply(clean_tweet)
@@ -56,11 +57,13 @@ X_train, X_test, y_train, y_test = train_test_split(
     stratify=y
 )
 
-vectorizer = TfidfVectorizer(max_features=5000)
+vectorizer = TfidfVectorizer(
+    max_features=10000,
+    ngram_range=(1, 2)
+)
 
 X_train_tfidf = vectorizer.fit_transform(X_train)
 X_test_tfidf = vectorizer.transform(X_test)
-
 
 model = LogisticRegression(max_iter=1000)
 
@@ -70,6 +73,34 @@ y_pred = model.predict(X_test_tfidf)
 
 accuracy = accuracy_score(y_test, y_pred)
 
+print("Accuracy:", round(accuracy * 100, 2), "%")
+
+results = pd.DataFrame({
+    "Actual": y_test,
+    "Predicted": y_pred,
+    "Tweet": X_test
+})
+
+mistakes = results[results["Actual"] != results["Predicted"]]
+print("Misclassified tweets:", len(mistakes))
+
+print("\nExamples of misclassified tweets:")
+print(mistakes.head(10))
+print("\nRandom misclassified tweets:")
+print(mistakes.sample(10, random_state=42))
+feature_names = vectorizer.get_feature_names_out()
+coefficients = model.coef_[0]
+
+word_weights = pd.DataFrame({
+    "Word": feature_names,
+    "Weight": coefficients
+})
+
+print("\nWords associated with Positive sentiment:")
+print(word_weights.sort_values("Weight", ascending=False).head(15))
+
+print("\nWords associated with Negative sentiment:")
+print(word_weights.sort_values("Weight").head(15))
 
 while True:
     tweet = input("\nEnter a tweet (or type 'exit' to stop): ")
