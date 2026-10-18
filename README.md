@@ -6,24 +6,28 @@ A machine learning project that analyzes tweet text and predicts whether its sen
 
 * Load and explore tweet datasets using Pandas.
 * Clean tweet text by removing URLs, usernames, punctuation, and extra spaces.
-* Normalize repeated characters in words to improve text consistency.
+* Normalize repeated characters in words.
 * Convert text into numerical features using TF-IDF vectorization.
 * Use unigrams and bigrams to capture individual words and word combinations.
 * Train a Logistic Regression sentiment classification model.
 * Evaluate model performance using accuracy, precision, recall, and F1-score.
-* Inspect misclassified tweets to understand model errors.
-* Analyze learned word weights to identify features associated with positive and negative sentiment.
+* Inspect misclassified tweets and analyze learned word weights.
 * Predict sentiment for custom user-entered tweets.
 * Display estimated prediction confidence.
+* Provide an interactive web interface using Streamlit.
+* Display sentiment results with colored messages and a confidence progress bar.
+* Validate empty input before making predictions.
+* Cache the trained model to avoid unnecessary retraining during normal Streamlit interactions.
 
 ## Tech Stack
 
 * **Language:** Python
 * **Data Analysis:** Pandas
 * **Machine Learning:** scikit-learn
-* **Text Representation:** TF-IDF Vectorization
-* **Classification Algorithm:** Logistic Regression
-* **NLP:** Regular-expression-based text preprocessing
+* **Text Processing:** Regular Expressions
+* **Feature Extraction:** TF-IDF Vectorization
+* **Classification:** Logistic Regression
+* **Frontend:** Streamlit
 
 ## Dataset
 
@@ -45,7 +49,75 @@ The dataset is divided into training and testing sets. The full dataset is not i
 
 The current model uses TF-IDF features with unigrams and bigrams, along with Logistic Regression.
 
-The reported accuracy is based on the current train-test split. Further evaluation and improvements are planned.
+These results are based on the current train-test split. Further evaluation and improvements are planned.
+
+## Application Interface
+
+The Streamlit application allows users to:
+
+1. Enter a tweet into a text area.
+2. Click the **Analyze Sentiment** button.
+3. View the predicted Positive or Negative sentiment.
+4. View the estimated prediction confidence.
+5. See a confidence progress bar and a colored result message.
+
+## Project Structure
+
+```text
+twitter_sentiment_analyzer/
+├── app.py
+├── main.py
+├── sentiment_model.py
+├── requirements.txt
+├── README.md
+├── tweets.csv
+└── .gitignore
+```
+
+The Sentiment140 dataset must also be placed in the project directory to train the model locally. It is not included in the repository.
+
+## Installation and Usage
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/skminhaj20/twitter-sentiment-analyzer.git
+```
+
+### 2. Navigate to the project directory
+
+```bash
+cd twitter-sentiment-analyzer
+```
+
+### 3. Create and activate a virtual environment (recommended)
+
+On Windows:
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+### 4. Install dependencies
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### 5. Add the dataset
+
+Place `training.1600000.processed.noemoticon.csv` in the project directory.
+
+The dataset must be obtained separately.
+
+### 6. Run the Streamlit application
+
+```bash
+python -m streamlit run app.py
+```
+
+Open the local URL displayed in the terminal if your browser does not open automatically.
 
 ## Limitations
 
@@ -54,7 +126,8 @@ The reported accuracy is based on the current train-test split. Further evaluati
 * Misspellings, sarcasm, and ambiguous text can lead to incorrect predictions.
 * The model may struggle with context-dependent expressions and unfamiliar words.
 * Prediction confidence is an estimated probability, not a guarantee of correctness.
-* The model has been trained on a limited sample of the Sentiment140 dataset and may not generalize to every type of tweet.
+* The model was trained on a limited sample of Sentiment140 and may not generalize to every type of tweet.
+* The application currently analyzes manually entered text; live X/Twitter integration is not yet implemented.
 
 ## Project Progress
 
@@ -67,47 +140,25 @@ The reported accuracy is based on the current train-test split. Further evaluati
 * [x] Custom tweet predictions
 * [x] Prediction confidence
 * [x] Error analysis and initial model improvements
+* [x] Streamlit user interface
 * [ ] Further model evaluation and improvement
-* [ ] Streamlit user interface
 * [ ] X/Twitter data integration
 * [ ] Audience feedback and trend analysis
 * [ ] AI-generated post suggestions
 * [ ] SQL-based history storage
 * [ ] Testing and deployment
 
-## Running the Project
-
-1. Install Python and the required dependencies.
-
-2. Place the Sentiment140 dataset file in the project directory.
-
-3. Install the dependencies:
-
-   ```bash
-   python -m pip install -r requirements.txt
-   ```
-
-4. Run the application:
-
-   ```bash
-   python main.py
-   ```
-
-5. Enter a tweet when prompted to predict its sentiment.
-
-6. Type `exit` to stop the program.
-
 ## Future Improvements
 
-* Improve model performance through systematic evaluation and experimentation.
+* Improve model performance through systematic evaluation.
 * Explore neutral sentiment classification.
-* Build an interactive dashboard using Streamlit.
 * Integrate X/Twitter data where API access and permissions permit.
 * Analyze audience feedback, replies, and trending topics.
 * Generate suggested posts based on sentiment analysis and audience feedback.
 * Store analysis history in a SQL database.
+* Add visualizations and analysis dashboards.
 * Test and deploy the application.
 
 ## Disclaimer
 
-This project is for educational and portfolio purposes. Sentiment predictions are estimates and may not accurately reflect the intended meaning of every tweet.
+This project is intended for educational and portfolio purposes. Sentiment predictions are estimates and may not accurately reflect the intended meaning of every tweet.
