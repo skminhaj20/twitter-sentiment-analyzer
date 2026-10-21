@@ -1,8 +1,12 @@
 # 𝕏 Sentiment Analyzer
 
-A machine learning project that analyzes X (formerly Twitter) posts and predicts whether their sentiment is **Positive or Negative** using Natural Language Processing (NLP) and machine learning. The application also supports username-based post retrieval, language detection, English translation, and engagement analysis through an interactive Streamlit interface.
+A machine learning project that analyzes X (formerly Twitter) posts and predicts whether their sentiment is **Positive or Negative** using Natural Language Processing (NLP) and machine learning.
+
+The application supports username-based post retrieval, language detection, English translation, engagement analysis, news discovery, and an initial topic-based post recommendation workflow through an interactive Streamlit interface.
 
 ## Current Features
+
+### Sentiment Analysis
 
 * Load and explore tweet datasets using Pandas.
 * Clean tweet text by removing URLs, usernames, punctuation, and extra spaces.
@@ -14,16 +18,30 @@ A machine learning project that analyzes X (formerly Twitter) posts and predicts
 * Inspect misclassified tweets and analyze learned word weights.
 * Predict sentiment for custom user-entered tweets.
 * Display estimated prediction confidence.
-* Provide an interactive web interface using Streamlit.
 * Cache the trained model to avoid unnecessary retraining during normal Streamlit interactions.
-* **Fetch recent posts by X username** using the FxTwitter service.
-* **Display posts in their original language** without excluding non-English posts.
-* **Detect the language** of each retrieved post.
-* **Translate non-English posts into English** using an individual translation button.
+
+### X Post Analysis
+
+* Fetch recent public posts by X username using the FxTwitter service.
+* Display posts in their original language.
+* Detect the language of each retrieved post.
+* Translate non-English posts into English using an individual translation button.
 * Display each post's date and time.
 * Show likes, replies, sentiment, and confidence for each post.
 * Summarize positive and negative posts and total engagement.
 * Highlight the post with the highest combined likes and replies as inspiration for future content.
+
+### News Discovery and Post Recommendations
+
+* Search for recent news articles related to a user-entered topic.
+* Automatically retrieve recent news headlines through Google News RSS.
+* Select a retrieved headline as a topic for a suggested X post.
+* Generate a basic template-based draft from the selected topic.
+* Preserve selected topics and generated drafts across Streamlit interactions using session state.
+
+**Current limitation:** The recommendation feature generates a basic template-based draft. Personalized AI-generated posts based on engagement patterns, audience feedback, and trends are still under development.
+
+Google News headlines represent news coverage, not verified X trending topics. Headline counts must not be interpreted as X post counts or numbers of distinct users.
 
 ## Tech Stack
 
@@ -36,8 +54,9 @@ A machine learning project that analyzes X (formerly Twitter) posts and predicts
 | TF-IDF Vectorization | Text feature extraction                             |
 | Logistic Regression  | Sentiment classification                            |
 | Streamlit            | Interactive web interface                           |
-| Requests             | HTTP requests for retrieving posts                  |
-| FxTwitter API        | Retrieving public profile posts and engagement data |
+| Requests             | HTTP requests for retrieving posts and news         |
+| FxTwitter service    | Retrieving public profile posts and engagement data |
+| Google News RSS      | Retrieving recent news headlines                    |
 | Langdetect           | Automatic language detection                        |
 | Deep Translator      | Translating posts into English                      |
 
@@ -50,8 +69,11 @@ This project uses a balanced sample of the Sentiment140 dataset containing **20,
 
 The dataset is divided into training and testing sets:
 
-* Training samples: 16,000
-* Testing samples: 4,000
+| Dataset Split |    Samples |
+| ------------- | ---------: |
+| Training      |     16,000 |
+| Testing       |      4,000 |
+| **Total**     | **20,000** |
 
 The full dataset is not included in this repository because of its size. It must be obtained separately and placed in the project directory for local model training.
 
@@ -72,11 +94,11 @@ These results are based on the current train-test split. Further evaluation and 
 
 ## Application Interface
 
-The Streamlit application provides two analysis modes.
+The Streamlit application provides two primary analysis modes.
 
 ### 1. Analyze by Username
 
-1. Enter a public X username, such as `narendramodi`.
+1. Enter a public X username, such as `NASA`.
 2. Fetch the available recent posts returned by the external service.
 3. View each post in its original language.
 4. View the detected language and posting date.
@@ -93,7 +115,25 @@ The application displays up to five posts from the posts returned by the service
 2. Click **Analyze Sentiment**.
 3. View the predicted Positive or Negative sentiment.
 4. View the estimated prediction confidence.
-5. See the result displayed through a progress bar and colored message.
+5. See the result displayed through a progress bar and a message.
+
+### 3. Trend-Aware Post Recommendation
+
+The recommendation interface provides two options.
+
+**Search Manually**
+
+1. Enter a topic, such as `Artificial Intelligence`.
+2. Retrieve recent news headlines related to the topic.
+3. Generate a basic suggested post using the selected topic.
+
+**Auto-Detect Trends**
+
+1. Retrieve recent headlines from Google News RSS.
+2. Select a headline to use as the topic.
+3. Generate a basic suggested post based on the selection.
+
+This feature is an initial implementation. It does not yet identify verified X trends, count X posts or unique users, analyze audience reply text, or use a generative AI model to create personalized recommendations.
 
 ## Project Structure
 
@@ -178,10 +218,13 @@ Open the local URL displayed in the terminal if your browser does not open autom
 * The number and recency of retrieved posts depend on the posts returned by the service.
 * Language detection may be inaccurate for short or mixed-language text.
 * Translation depends on the availability of the external translation service.
-* The current recommendation highlights the post with the highest combined likes and replies. It does not yet generate a new post using live trends or audience reply text.
-* Live trend analysis, audience reply-text analysis, SQL-based history storage, and deployment have not yet been implemented.
+* Google News RSS provides news headlines, not verified X trends or X activity counts.
+* The current post recommendation is template-based and does not guarantee greater engagement or positive sentiment.
+* Audience reply-text analysis, personalized AI-generated post suggestions, SQL-based analysis history, and deployment remain planned improvements.
 
 ## Project Progress
+
+### Completed
 
 * [x] Python basics and project setup
 * [x] Dataset loading and exploration
@@ -198,12 +241,28 @@ Open the local URL displayed in the terminal if your browser does not open autom
 * [x] English translation for non-English posts
 * [x] Posting date and engagement metrics
 * [x] Sentiment summary and engagement-based post inspiration
+* [x] Manual news-topic search
+* [x] Automatic news headline discovery
+* [x] Basic topic-based post draft generation
+* [x] Session-state handling for topic selection and draft persistence
+
+### In Progress
+
+* [ ] Verify and stabilize the complete recommendation workflow
+* [ ] Personalize suggested posts using historical engagement and sentiment patterns
+* [ ] Group related headlines and calculate news-coverage counts
 * [ ] Further model evaluation and improvement
-* [ ] Live trending-topic analysis
-* [ ] Audience reply-text analysis
-* [ ] AI-generated post suggestions based on trends and audience feedback
-* [ ] SQL-based analysis history
-* [ ] Testing and deployment
+
+### Planned
+
+* [ ] Explore audience reply-text analysis using an accessible free data source
+* [ ] Develop personalized AI-generated post suggestions
+* [ ] Store analysis history using SQLite and SQL queries
+* [ ] Add visualizations and historical sentiment dashboards
+* [ ] Test error handling and application reliability
+* [ ] Improve the interface and user experience
+* [ ] Finalize documentation and screenshots
+* [ ] Deploy the application
 
 ## Future Improvements
 
@@ -219,4 +278,4 @@ Open the local URL displayed in the terminal if your browser does not open autom
 
 ## Disclaimer
 
-This project is intended for educational and portfolio purposes. Sentiment predictions are automated estimates and may not accurately reflect the intended meaning of every post. Post retrieval and translation depend on external services and their availability.
+This project is intended for educational and portfolio purposes. Sentiment predictions are automated estimates and may not accurately reflect the intended meaning of every post. Post retrieval, news discovery, and translation depend on external services and their availability. The application does not guarantee increased engagement or positive audience sentiment.
