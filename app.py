@@ -5,6 +5,62 @@ import streamlit as st
 from datetime import datetime, timezone
 from sentiment_model import train_model, predict_sentiment
 
+def fetch_auto_trends():
+    import xml.etree.ElementTree as ET
+
+    url = "https://news.google.com/rss"
+    params = {
+        "hl": "en-IN",
+        "gl": "IN",
+        "ceid": "IN:en"
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+
+        root = ET.fromstring(response.content)
+        trends = []
+
+        for item in root.findall(".//item")[:15]:
+            title = item.findtext("title", "").strip()
+
+            if title:
+                trends.append(title)
+
+        return trends
+
+    except (requests.RequestException, ET.ParseError):
+        return [] 
+    
+def fetch_trending_topics(topic):
+    url = "https://news.google.com/rss/search"
+    params = {
+        "q": topic,
+        "hl": "en-IN",
+        "gl": "IN",
+        "ceid": "IN:en"
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(response.content)
+
+        articles = []
+
+        for item in root.findall(".//item")[:5]:
+            title = item.findtext("title", "")
+            if title:
+                articles.append(title)
+
+        return articles
+
+    except (requests.RequestException, ET.ParseError):
+        return []
+    
 st.set_page_config(
     page_title="X Sentiment Analyzer",
     page_icon="📊",
@@ -21,11 +77,17 @@ def load_model():
 model, vectorizer = load_model()
 
 # Choose analysis mode
+# Choose analysis mode
+if "analysis_mode" not in st.session_state:
+    st.session_state.analysis_mode = "Analyze by Username"
+
 mode = st.radio(
     "Choose analysis mode:",
     ["Analyze by Username", "Analyze Individual Tweet"],
+    key="analysis_mode",
     horizontal=True
 )
+
 
 # --------------------------------
 # Mode 1: Analyze posts by username
@@ -34,7 +96,7 @@ if mode == "Analyze by Username":
 
     username = st.text_input(
         "Enter X username (without @)",
-        placeholder="e.g. narendramodi"
+        placeholder="e.g. NASA"
     )
 
     if st.button("Fetch and Analyze Posts", type="primary"):
@@ -44,28 +106,21 @@ if mode == "Analyze by Username":
 
         else:
             url = (
-                "https://api.fxtwitter.com/"
-                f"2/profile/{username.strip().lstrip('@')}/statuses"
+                f"https://api.fxtwitter.com/"
+                f"2/profile/{username.strip()}/statuses"
             )
 
             try:
-                with st.spinner("Fetching recent posts..."):
+                with st.spinner("Fetching posts..."):
                     response = requests.get(
                         url,
-                        params={"count": 20},
+                        params={"count": 5},
                         timeout=20
                     )
                     response.raise_for_status()
                     data = response.json()
 
-                posts = data.get("results", [])
-
-                # Sort posts newest first when timestamps are available.
-                posts = sorted(
-                    posts,
-                    key=lambda p: p.get("created_timestamp", 0) or 0,
-                    reverse=True
-                )
+                posts = data.get("results", [])[:5]
 
                 if not posts:
                     st.warning("No posts were returned for this username.")
@@ -74,15 +129,16 @@ if mode == "Analyze by Username":
                     analyzed_posts = []
 
                     for post in posts:
-                        if len(analyzed_posts) >= 5:
-                            break
-
                         text = post.get("text", "").strip()
 
                         if not text:
                             continue
 
-                        # Detect language without excluding any posts.
+                        posted_at = post.get(
+                            "created_at",
+                            "Date unavailable"
+                        )
+
                         try:
                             language = detect(text)
                         except LangDetectException:
@@ -94,15 +150,6 @@ if mode == "Analyze by Username":
 
                         likes = post.get("likes", 0) or 0
                         replies = post.get("replies", 0) or 0
-                        posted_at = post.get(
-                            "created_at", "Date unavailable"
-                        )
-
-                        post_id = str(
-                            post.get("id")
-                            or post.get("url")
-                            or len(analyzed_posts)
-                        )
 
                         analyzed_posts.append({
                             "text": text,
@@ -114,106 +161,212 @@ if mode == "Analyze by Username":
                             "replies": replies
                         })
 
-                        with st.container(border=True):
-                            st.subheader(
-                                f"Post {len(analyzed_posts)}"
-                            )
-
-                            st.caption(f"📅 Posted: {posted_at}")
-                            st.caption(
-                                f"🌐 Detected language: {language.upper()}"
-                            )
-
-                            # Always show the original post.
-                            st.write(text)
-
-                            # Offer translation for non-English posts.
-                            if language not in ("en", "unknown"):
-                                if st.button(
-                                    "🌐 Translate to English",
-                                    key=f"translate_{post_id}"
-                                ):
-                                    try:
-                                        with st.spinner("Translating..."):
-                                            translated = GoogleTranslator(
-                                                source="auto",
-                                                target="en"
-                                            ).translate(text)
-
-                                        st.markdown("**English translation:**")
-                                        st.info(translated)
-
-                                    except Exception:
-                                        st.error(
-                                            "Translation failed. Please try again."
-                                        )
-
-                            col1, col2, col3 = st.columns(3)
-                            col1.metric("Likes", likes)
-                            col2.metric("Replies", replies)
-                            col3.metric("Sentiment", prediction)
-
-                            st.write(
-                                f"Confidence: {confidence:.2f}%"
-                            )
-
-                    if analyzed_posts:
-                        positive_count = sum(
-                            p["sentiment"] == "Positive"
-                            for p in analyzed_posts
-                        )
-
-                        negative_count = sum(
-                            p["sentiment"] == "Negative"
-                            for p in analyzed_posts
-                        )
-
-                        total_engagement = sum(
-                            p["likes"] + p["replies"]
-                            for p in analyzed_posts
-                        )
-
-                        st.subheader("Sentiment Summary")
-
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("Positive Posts", positive_count)
-                        col2.metric("Negative Posts", negative_count)
-                        col3.metric(
-                            "Total Engagement", total_engagement
-                        )
-
-                        best_post = max(
-                            analyzed_posts,
-                            key=lambda p: p["likes"] + p["replies"]
-                        )
-
-                        st.subheader("Recommended Post Inspiration")
-
-                        st.write(
-                            "Your highest-engagement post can provide "
-                            "inspiration for your next post."
-                        )
-
-                        st.info(best_post["text"])
-
-                        st.caption(
-                            "This recommendation uses past engagement "
-                            "only. Live trends and actual reply texts "
-                            "are not yet included."
-                        )
+                    # Save analysis results across Streamlit reruns
+                    st.session_state["analyzed_posts"] = analyzed_posts
+                    st.session_state.pop("topic_news", None)
+                    st.session_state.pop("auto_trends", None)
+                    st.session_state.pop("selected_topic", None)
+                    st.session_state.pop("suggested_post", None)
 
             except requests.RequestException:
                 st.error(
-                    "Unable to fetch posts. Check the username or try again later."
+                    "Unable to fetch posts. Check the username "
+                    "or try again later."
                 )
-
             except (ValueError, TypeError):
                 st.error("The server returned an unexpected response.")
 
+    # Display saved posts independently of the Fetch button
+    analyzed_posts = st.session_state.get("analyzed_posts", [])
+
+    if analyzed_posts:
+
+        for index, post in enumerate(analyzed_posts, start=1):
+
+            with st.container(border=True):
+                st.subheader(f"Post {index}")
+                st.caption(f"📅 Posted: {post['posted_at']}")
+                st.caption(
+                    f"🌐 Detected language: {post['language'].upper()}"
+                )
+                st.write(post["text"])
+
+                if post["language"] not in ("en", "unknown"):
+                    if st.button(
+                        "🌐 Translate to English",
+                        key=f"translate_saved_{index}"
+                    ):
+                        try:
+                            with st.spinner("Translating..."):
+                                translated = GoogleTranslator(
+                                    source="auto",
+                                    target="en"
+                                ).translate(post["text"])
+
+                            st.info(translated)
+
+                        except Exception:
+                            st.error("Translation failed. Please try again.")
+
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Likes", post["likes"])
+                col2.metric("Replies", post["replies"])
+                col3.metric("Sentiment", post["sentiment"])
+
+                st.write(
+                    f"Confidence: {post['confidence']:.2f}%"
+                )
+
+        positive_count = sum(
+            p["sentiment"] == "Positive" for p in analyzed_posts
+        )
+        negative_count = sum(
+            p["sentiment"] == "Negative" for p in analyzed_posts
+        )
+        total_engagement = sum(
+            p["likes"] + p["replies"] for p in analyzed_posts
+        )
+
+        st.subheader("Sentiment Summary")
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Positive Posts", positive_count)
+        col2.metric("Negative Posts", negative_count)
+        col3.metric("Total Engagement", total_engagement)
+
+        best_post = max(
+            analyzed_posts,
+            key=lambda p: p["likes"] + p["replies"]
+        )
+
+        st.subheader("⭐ Highest-Engagement Post")
+        st.write(best_post["text"])
+        st.caption(
+            f"Likes: {best_post['likes']} | "
+            f"Replies: {best_post['replies']}"
+        )
+
+    # --------------------------------
+    # Trend-aware post recommendation
+    # Keep this OUTSIDE the Fetch button
+    # --------------------------------
+
+    st.divider()
+    st.subheader("🔥 Trend-Aware Post Recommendation")
+
+    trend_mode = st.radio(
+        "Choose how to find a topic:",
+        ["Search Manually", "Auto-Detect Trends"],
+        key="trend_mode",
+        horizontal=True
+    )
+
+    if trend_mode == "Search Manually":
+
+        topic = st.text_input(
+            "Enter a topic",
+            placeholder="e.g. Artificial Intelligence",
+            key="manual_topic"
+        )
+
+        if st.button("Find Related News"):
+            if not topic.strip():
+                st.warning("Please enter a topic.")
+
+            else:
+                with st.spinner("Finding recent news..."):
+                    news = fetch_trending_topics(topic.strip())
+
+                if news:
+                    st.session_state["topic_news"] = news
+                    st.session_state["selected_topic"] = topic.strip()
+                    st.session_state.pop("suggested_post", None)
+                else:
+                    st.session_state["topic_news"] = []
+                    st.warning("No recent news found for this topic.")
+
+        news = st.session_state.get("topic_news", [])
+
+        if news:
+            st.write("### 📰 Recent News")
+
+            for headline in news:
+                st.write(f"• {headline}")
+
+    else:
+
+        if st.button("Detect Trending Topics"):
+            with st.spinner("Discovering current topics..."):
+                trends = fetch_auto_trends()
+
+            st.session_state["auto_trends"] = trends
+
+            if trends:
+                st.session_state.pop("suggested_post", None)
+            else:
+                st.warning("Unable to retrieve current news headlines.")
+
+        trends = st.session_state.get("auto_trends", [])
+
+        if trends:
+            selected_trend = st.selectbox(
+                "Select a topic from recent news:",
+                trends,
+                key="trend_selection"
+            )
+
+            st.session_state["selected_topic"] = selected_trend
+
+            st.caption(
+                "These are news headlines, not verified X trends."
+            )
+
+    # Generate a draft and save it across reruns
+    
+if st.button("✍️ Generate Suggested Post", type="primary"):
+
+    topic = ""
+
+    if trend_mode == "Search Manually":
+        topic = st.session_state.get("manual_topic", "").strip()
+
+        if topic and not st.session_state.get("topic_news"):
+            topic = ""
+
+    else:
+        topic = st.session_state.get("trend_selection", "").strip()
+
+    if not topic:
+        st.warning("Please search for a topic or select a current headline.")
+    else:
+        suggested_post = (
+            f"Let's talk about this development: {topic}\n\n"
+            "What impact could this have, and what should "
+            "we pay attention to next?\n\n"
+            "I'd love to hear your thoughts! 👇"
+        )
+
+        st.session_state["suggested_post"] = suggested_post
+
+if st.session_state.get("suggested_post"):
+    st.subheader("✍️ Your Suggested X Post")
+
+    st.text_area(
+        "Copy your suggested post:",
+        value=st.session_state["suggested_post"],
+        height=180,
+        key="suggested_post_display"
+    )
+
+
+    
+
 # --------------------------------
 # Mode 2: Analyze an individual tweet
+# Keep your existing individual-tweet section here
 # --------------------------------
 else:
+    # Keep your existing individual-tweet analysis code unchanged.
     tweet = st.text_area(
         "Enter your tweet:",
         placeholder="Example: I absolutely love this product!",
@@ -221,10 +374,8 @@ else:
     )
 
     if st.button("Analyze Sentiment", type="primary"):
-
         if not tweet.strip():
             st.warning("Please enter a tweet first.")
-
         else:
             prediction, confidence = predict_sentiment(
                 tweet, model, vectorizer
