@@ -60,7 +60,59 @@ def fetch_trending_topics(topic):
 
     except (requests.RequestException, ET.ParseError):
         return []
-    
+
+def generate_post_drafts(headline, analyzed_posts):
+    headline = headline.strip().rstrip(".")
+
+    best_post = max(
+        analyzed_posts,
+        key=lambda p: p["likes"] + p["replies"],
+        default=None
+    )
+
+    engagement_note = ""
+
+    if best_post:
+        engagement = best_post["likes"] + best_post["replies"]
+
+        engagement_note = (
+            f"\n\nYour highest-engagement post received "
+            f"{best_post['likes']} likes and "
+            f"{best_post['replies']} replies."
+        )
+
+    drafts = [
+        {
+            "style": "Insight-driven",
+            "text": (
+                f"An important development: {headline}.\n\n"
+                "Beyond the immediate news, what does this mean "
+                "for the people and systems affected by it?\n\n"
+                "The real challenge is turning new developments "
+                "into better decisions."
+            )
+        },
+        {
+            "style": "Discussion-driven",
+            "text": (
+                f"Let's examine this development: {headline}.\n\n"
+                "What do you think is the biggest opportunity "
+                "or risk here, and why?\n\n"
+                "I'd like to hear thoughtful perspectives."
+            )
+        },
+        {
+            "style": "Concise opinion",
+            "text": (
+                f"{headline}.\n\n"
+                "The headline matters, but the long-term "
+                "consequences matter even more.\n\n"
+                "What should we pay closest attention to next?"
+            )
+        }
+    ]
+
+    return drafts, engagement_note   
 st.set_page_config(
     page_title="X Sentiment Analyzer",
     page_icon="📊",
@@ -321,42 +373,75 @@ if mode == "Analyze by Username":
                 "These are news headlines, not verified X trends."
             )
 
-    # Generate a draft and save it across reruns
-    
-if st.button("✍️ Generate Suggested Post", type="primary"):
 
-    topic = ""
+    # Generate and display post recommendations
+    st.divider()
+    st.subheader("✍️ Recommended Posts")
 
-    if trend_mode == "Search Manually":
-        topic = st.session_state.get("manual_topic", "").strip()
+    if st.button("Generate 3 Post Ideas", type="primary"):
+        if trend_mode == "Search Manually":
+            topic = st.session_state.get("manual_topic", "").strip()
+            news = st.session_state.get("topic_news", [])
 
-        if topic and not st.session_state.get("topic_news"):
-            topic = ""
+            if not topic or not news:
+                st.warning("Enter a topic and click Find Related News first.")
+                st.stop()
 
-    else:
-        topic = st.session_state.get("trend_selection", "").strip()
+            headline = news[0]
 
-    if not topic:
-        st.warning("Please search for a topic or select a current headline.")
-    else:
-        suggested_post = (
-            f"Let's talk about this development: {topic}\n\n"
-            "What impact could this have, and what should "
-            "we pay attention to next?\n\n"
-            "I'd love to hear your thoughts! 👇"
+        else:
+            trends = st.session_state.get("auto_trends", [])
+            topic = st.session_state.get("trend_selection", "").strip()
+
+            if not trends or not topic:
+                st.warning("Click Detect Trending Topics and select a headline.")
+                st.stop()
+
+            headline = topic
+
+        drafts, engagement_note = generate_post_drafts(
+            headline,
+            st.session_state.get("analyzed_posts", [])
         )
 
-        st.session_state["suggested_post"] = suggested_post
+        st.session_state["recommended_drafts"] = drafts
+        st.session_state["recommendation_headline"] = headline
+        st.session_state.pop("suggested_post", None)
 
-if st.session_state.get("suggested_post"):
-    st.subheader("✍️ Your Suggested X Post")
+    drafts = st.session_state.get("recommended_drafts", [])
 
-    st.text_area(
-        "Copy your suggested post:",
-        value=st.session_state["suggested_post"],
-        height=180,
-        key="suggested_post_display"
-    )
+    if drafts:
+        st.caption(
+            f"Topic: {st.session_state.get('recommendation_headline', '')}"
+        )
+
+        for index, draft in enumerate(drafts):
+            with st.container(border=True):
+                st.subheader(draft["style"])
+                st.write(draft["text"])
+
+                st.text_area(
+                    "Copy your preferred draft:",
+                    value=draft["text"],
+                    height=160,
+                    key=f"draft_copy_{index}"
+                )
+
+        analyzed_posts = st.session_state.get("analyzed_posts", [])
+
+        if analyzed_posts:
+            best_post = max(
+                analyzed_posts,
+                key=lambda p: p["likes"] + p["replies"]
+            )
+
+            st.info(
+                "Your highest-engagement post received "
+                f"{best_post['likes']} likes and "
+                f"{best_post['replies']} replies. "
+                "Use this as a reference, not a guarantee of future engagement."
+            )
+
 
 
     
