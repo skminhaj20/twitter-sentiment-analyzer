@@ -62,57 +62,124 @@ def fetch_trending_topics(topic):
         return []
 
 def generate_post_drafts(headline, analyzed_posts):
-    headline = headline.strip().rstrip(".")
+    import json
+    import requests
 
     best_post = max(
         analyzed_posts,
-        key=lambda p: p["likes"] + p["replies"],
+        key=lambda p: p.get("likes", 0) + p.get("replies", 0),
         default=None
     )
 
     engagement_note = ""
 
     if best_post:
-        engagement = best_post["likes"] + best_post["replies"]
-
         engagement_note = (
             f"\n\nYour highest-engagement post received "
-            f"{best_post['likes']} likes and "
-            f"{best_post['replies']} replies."
+            f"{best_post.get('likes', 0)} likes and "
+            f"{best_post.get('replies', 0)} replies."
         )
 
+    # Prepare examples from the user's analyzed posts.
+    post_examples = []
+
+    for post in analyzed_posts[:5]:
+        post_examples.append({
+            "text": post.get("text", ""),
+            "sentiment": post.get("sentiment", "Unknown"),
+            "likes": post.get("likes", 0),
+            "replies": post.get("replies", 0)
+        })
+
+    prompt = f"""
+You are an expert social media strategist who writes specific,
+interesting, natural-sounding posts for X (Twitter).
+
+SELECTED NEWS:
+{headline}
+
+RECENT POSTS FROM THE ACCOUNT:
+{json.dumps(post_examples, ensure_ascii=False)}
+
+YOUR TASK:
+Create exactly 3 distinct, ready-to-publish X posts about the selected news.
+
+Requirements:
+1. Discuss the actual subject, companies, people, or implications in the news.
+2. Include specific insights, reasoning, or useful observations.
+3. Avoid generic openings such as "Let's talk about this development."
+4. Do not merely repeat the headline.
+5. Do not invent facts, statistics, quotes, or events.
+6. Use the account's recent posts to understand its interests and writing style.
+7. Use engagement information as a clue, not as proof of what always works.
+8. Keep each post concise and suitable for X.
+9. Make all three posts meaningfully different.
+10. Do not claim a post will definitely go viral or increase engagement.
+
+Return valid JSON in exactly this format:
+{{
+  "drafts": [
+    {{"style": "Insight-driven", "text": "A complete post"}},
+    {{"style": "Discussion-driven", "text": "A complete post"}},
+    {{"style": "Concise opinion", "text": "A complete post"}}
+  ]
+}}
+"""
+
+    response = requests.post(
+        "http://localhost:11434/api/generate",
+        json={
+            "model": "llama3.2:3b",
+            "prompt": prompt,
+            "stream": False,
+            "format": "json",
+            "options": {
+                "temperature": 0.5,
+                "num_predict": 250,
+                "num_ctx": 2048
+            }
+        },
+        timeout=600
+    )
+
+    response.raise_for_status()
+
+    result = response.json()
+    generated_data = json.loads(result["response"])
+    drafts = generated_data.get("drafts", [])
+
+# Keep only drafts with valid text.
+
+    # Keep only drafts with valid text.
     drafts = [
-        {
-            "style": "Insight-driven",
-            "text": (
-                f"An important development: {headline}.\n\n"
-                "Beyond the immediate news, what does this mean "
-                "for the people and systems affected by it?\n\n"
-                "The real challenge is turning new developments "
-                "into better decisions."
-            )
-        },
-        {
-            "style": "Discussion-driven",
-            "text": (
-                f"Let's examine this development: {headline}.\n\n"
-                "What do you think is the biggest opportunity "
-                "or risk here, and why?\n\n"
-                "I'd like to hear thoughtful perspectives."
-            )
-        },
-        {
-            "style": "Concise opinion",
-            "text": (
-                f"{headline}.\n\n"
-                "The headline matters, but the long-term "
-                "consequences matter even more.\n\n"
-                "What should we pay closest attention to next?"
-            )
-        }
+        draft for draft in drafts
+        if isinstance(draft, dict)
+        and isinstance(draft.get("text"), str)
+        and draft["text"].strip()
     ]
 
-    return drafts, engagement_note   
+    # Fill in missing styles.
+    styles = [
+        "Insight-driven",
+        "Discussion-driven",
+        "Concise opinion"
+    ]
+
+    for i, draft in enumerate(drafts):
+        if not draft.get("style"):
+            draft["style"] = styles[i % len(styles)]
+
+    if not drafts:
+        raise ValueError(
+            "Ollama returned no usable post drafts. "
+            "Please click Generate 3 Post Ideas again."
+        )
+
+    return drafts[:3], engagement_note
+
+
+
+  
 st.set_page_config(
     page_title="X Sentiment Analyzer",
     page_icon="📊",
