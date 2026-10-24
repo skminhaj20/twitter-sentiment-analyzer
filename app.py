@@ -134,21 +134,26 @@ Return valid JSON in exactly this format:
             "stream": False,
             "format": "json",
             "options": {
-                "temperature": 0.5,
-                "num_predict": 250,
-                "num_ctx": 2048
+                "temperature": 0.3,
+                "num_predict": 600,
+                "num_ctx": 4096
             }
         },
         timeout=600
     )
 
-    response.raise_for_status()
-
     result = response.json()
-    generated_data = json.loads(result["response"])
+
+    try:
+        generated_data = json.loads(result["response"])
+    except (json.JSONDecodeError, KeyError) as exc:
+        raise ValueError(
+            "The AI returned incomplete output. "
+            "Please click Generate 3 Post Ideas again."
+        ) from exc
+
     drafts = generated_data.get("drafts", [])
 
-# Keep only drafts with valid text.
 
     # Keep only drafts with valid text.
     drafts = [
@@ -466,10 +471,30 @@ if mode == "Analyze by Username":
 
             headline = topic
 
-        drafts, engagement_note = generate_post_drafts(
-            headline,
-            st.session_state.get("analyzed_posts", [])
-        )
+        try:
+            with st.spinner("Generating 3 post ideas with AI..."):
+                drafts, engagement_note = generate_post_drafts(
+                    headline,
+                    st.session_state.get("analyzed_posts", [])
+                )
+
+            st.session_state["recommended_drafts"] = drafts
+            st.session_state["recommendation_headline"] = headline
+            st.session_state.pop("suggested_post", None)
+
+        except requests.exceptions.ConnectionError:
+            st.error(
+                "Cannot connect to Ollama. Make sure the Ollama server is running."
+            )
+
+        except requests.exceptions.HTTPError as exc:
+            st.error(f"Ollama returned an HTTP error: {exc}")
+
+        except (ValueError, KeyError) as exc:
+            st.error(f"Unable to generate valid post drafts: {exc}")
+
+        except requests.exceptions.RequestException as exc:
+            st.error(f"AI recommendation request failed: {exc}")
 
         st.session_state["recommended_drafts"] = drafts
         st.session_state["recommendation_headline"] = headline
