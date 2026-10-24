@@ -374,6 +374,3 @@ This project is intended for educational and portfolio purposes.
 
 Sentiment predictions are automated estimates and may not accurately reflect the intended meaning of every post. Post retrieval, news discovery, and translation depend on external services and their availability. AI-generated content may contain errors and should be reviewed before publication. The application does not guarantee increased engagement or positive audience sentiment.
 
-
-
-**Developed as a machine learning, NLP, and generative AI portfolio project.**
